@@ -1,4 +1,5 @@
 import os, json, logging
+from datetime import datetime, timezone
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 from telegram.constants import ParseMode
@@ -7,6 +8,34 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 TOKEN = os.environ.get("BOT_TOKEN", "")
+ADMIN_ID = int(os.environ.get("ADMIN_ID", "0"))  # set your Telegram user ID in Railway env vars
+STATS_FILE = os.path.join(os.path.dirname(__file__), "stats.json")
+
+# ─── Stats helpers ────────────────────────────────────────────────────────────
+def _load_stats() -> dict:
+    try:
+        with open(STATS_FILE) as f:
+            return json.load(f)
+    except Exception:
+        return {"users": {}}
+
+def _save_stats(stats: dict):
+    try:
+        with open(STATS_FILE, "w") as f:
+            json.dump(stats, f)
+    except Exception as e:
+        logger.warning(f"Could not save stats: {e}")
+
+def _track_user(user_id: int):
+    stats = _load_stats()
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    uid = str(user_id)
+    if uid not in stats["users"]:
+        stats["users"][uid] = {"first_seen": today, "last_seen": today, "visits": 1}
+    else:
+        stats["users"][uid]["last_seen"] = today
+        stats["users"][uid]["visits"] = stats["users"][uid].get("visits", 1) + 1
+    _save_stats(stats)
 
 # ─── Film data (embedded — all 245 films across 19 result categories) ──────────
 ALL_RESULTS = {
@@ -464,12 +493,35 @@ def make_result_keyboard(result_id: int, page: int, total: int, from_step: str) 
 
 # ─── Handlers ─────────────────────────────────────────────────────────────────
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    _track_user(update.effective_user.id)
     step = STEPS['welcome']
     await update.message.reply_text(
         step['text'],
         parse_mode=ParseMode.MARKDOWN_V2,
         reply_markup=make_step_keyboard(step['buttons'])
     )
+
+async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if ADMIN_ID and update.effective_user.id != ADMIN_ID:
+        return  # silently ignore non-admins
+    data = _load_stats()
+    users = data.get("users", {})
+    total = len(users)
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    week_ago = datetime.now(timezone.utc)
+    from datetime import timedelta
+    week_ago = (datetime.now(timezone.utc) - timedelta(days=7)).strftime("%Y-%m-%d")
+    today_count = sum(1 for u in users.values() if u.get("last_seen") == today)
+    week_count = sum(1 for u in users.values() if u.get("last_seen", "") >= week_ago)
+    new_today = sum(1 for u in users.values() if u.get("first_seen") == today)
+    text = (
+        f"📊 *Статистика бота*\n\n"
+        f"👥 Всего пользователей: *{total}*\n"
+        f"🆕 Новых сегодня: *{new_today}*\n"
+        f"📅 Активных сегодня: *{today_count}*\n"
+        f"📆 Активных за 7 дней: *{week_count}*"
+    )
+    await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN_V2)
 
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -572,6 +624,7 @@ def main():
         raise ValueError("BOT_TOKEN environment variable not set")
     app = Application.builder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("stats", stats))
     app.add_handler(CallbackQueryHandler(button))
     logger.info("Bot started")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
