@@ -126,7 +126,7 @@ ALL_RESULTS = {
         ]
     },
     4: {
-        "title": "Похмелье. Ничего не надо",
+        "title": "Похмелье",
         "films": [
             {"title": "Crime 101", "year": 2026, "director": "Bart Layton", "cast": "Chris Hemsworth, Mark Ruffalo, Barry Keoghan, Halle Berry", "platform": "Amazon MGM", "desc": "Неуловимый вор вдоль шоссе 101 готовит последнее дело — детектив ломает все правила. Идеальный зрительский криминал.", "imdb": "https://www.imdb.com/find/?q=Crime+101+2026", "kp": "https://www.kinopoisk.ru/index.php?kp_query=Crime+101+2026"},
             {"title": "Caught Stealing", "year": 2025, "director": "Darren Aronofsky", "cast": "Austin Butler, Regina King, Zoë Kravitz", "platform": "Sony", "desc": "Бывший бейсболист присмотрел за котом соседа — и оказался в центре криминального хаоса. Чёрная комедия про Нью-Йорк 90-х.", "imdb": "https://www.imdb.com/find/?q=Caught+Stealing", "kp": "https://www.kinopoisk.ru/index.php?kp_query=Caught+Stealing"},
